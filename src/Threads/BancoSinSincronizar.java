@@ -1,5 +1,6 @@
 package Threads;
 
+import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -25,7 +26,8 @@ class Banco {
 
 	private final double[] cuentas;
 	private Lock cierreBanco = new ReentrantLock();
-
+	private Condition saldoSuficiente;
+	
 	public Banco() {
 
 		cuentas = new double[100];
@@ -34,18 +36,32 @@ class Banco {
 			cuentas[i] = 2000;
 		}
 
+		saldoSuficiente = cierreBanco.newCondition(); //ledecimos que el cierrebanco va en condicion al saldosuficiente
+		
+		
 	}
 
-	public void transferencia(int cuentaOrigen, int cuentaDestino, double cantidad) {
+	public void transferencia(int cuentaOrigen, int cuentaDestino, double cantidad) throws InterruptedException {
 
 		cierreBanco.lock();
 
 		try {
 
-			if (cuentas[cuentaOrigen] < cantidad) { // evalua q el saldo no es inferior a la transferencia
+			while (cuentas[cuentaOrigen] < cantidad) { // evalua q el saldo no es inferior a la transferencia
 
-				return;
+//				System.out.println("-----------CANTIDAD INSUFICIENTE: " + cuentaOrigen + ".... SALDO: "
+//						+ cuentas[cuentaOrigen] + "...... " + cantidad);
+
+				saldoSuficiente.await(); //mientras la condicion se cumpla que el thread espere aki hasta que pueda salir de aqui la condicion.
+				//es decir que si no tiene bastante dinero para hacer una transferencia que espere hasta tenerlo para hacer esa transferencia.
+				
+				
+				//return; //lo comentamos para que todas se realizen
 			}
+//				else {
+//				System.out.println("----------CANTIDAD OK---------"+ cuentaOrigen);
+		
+//			}
 
 			System.out.println(Thread.currentThread());
 
@@ -56,6 +72,8 @@ class Banco {
 			cuentas[cuentaDestino] += cantidad;
 
 			System.out.printf(" Saldo total: %10.2f%n", getSaldoTotal());
+			
+			saldoSuficiente.signalAll(); //despierta a todos los hilos que pudiesen estar a la espera en el await(); para notrificarles que ha realizado todo lo anterior(aver si alguno se le vanta del estado de suspension por lo que ha hecho este hilo)
 
 		} finally {
 			// TODO: handle finally clause
